@@ -4,6 +4,7 @@ README.txt
 development.ini
 production.ini
 pytest.ini
+requirements.txt
 setup.py
 api/__init__.py
 api/db.py

@@ -2,6 +2,7 @@ import json
 
 from datetime import datetime
 from pyramid.response import Response
+from bson.json_util import dumps
 from pyramid.view import (
     view_config,
     view_defaults,
@@ -12,6 +13,7 @@ from .models import (
     Password,
     Organization,
     Program,
+    Household,
     Client,
     string_to_class
 )
@@ -43,14 +45,14 @@ class AuthViews:
             msg = 'Registered user %s with %s' % (new_user.email,
                                                   user_org.name)
             new_id = new_user.save(request.db)
-            user_org.api_users.append(str(new_id))
+            user_org.api_users.append(new_id)
             user_org.update_db(request.db)
             response_json = json.dumps({
                 'msg': msg,
                 'access_token': request.create_jwt_token(
                     new_user.email,
-                    organization=new_user.organization,
-                    program=new_user.program,
+                    organization=str(new_user.organization),
+                    program=str(new_user.program),
                     role=new_user.role,
                     userid=str(new_user._id),
                     jti=Password.random_string()
@@ -83,8 +85,8 @@ class AuthViews:
                     'msg': msg,
                     'access_token': request.create_jwt_token(
                         email,
-                        organization=auth_user.organization,
-                        program=auth_user.program,
+                        organization=str(auth_user.organization),
+                        program=str(auth_user.program),
                         role=auth_user.role,
                         userid=str(auth_user._id),
                         jti=Password.random_string()
@@ -238,7 +240,7 @@ class DefaultViews:
             response_json = json.dumps({
                 'msg': msg,
                 'count': count,
-                'results': results
+                'results': dumps(results)
             })
             response_code = 200
         return Response(
@@ -283,7 +285,7 @@ class DefaultViews:
                 'msg': msg,
                 'count': count,
                 'page_number': page_number,
-                'results': results
+                'results': dumps(results)
             })
             response_code = 200
         return Response(
@@ -325,7 +327,7 @@ class DefaultViews:
             response_json = json.dumps({
                 'msg': msg,
                 'count': count,
-                'results': model_obj_rels
+                'results': dumps(model_obj_rels)
             })
             response_code = 200
         return Response(
@@ -772,11 +774,113 @@ class UserViews(DefaultViews):
     #     return super(ProgramViews, self).add_relationship_existing(model)
 
 
+class HouseholdViews(DefaultViews):
+    model = Household
+
+    @view_config(route_name='household_create', permission='prog_admin')
+    def create(self):
+        """
+        Creating a new household requires that either a new Client be created
+        as well as the Head of Household, or that an existing client be
+        attached as the Head of Household.
+
+        Request Format:
+        {
+            "hh_type": "new | existing",
+            "new": { (if hh_type='new')
+                "first_name": "hh first name",
+                "last_name": "hh last name",
+                "middle_name": "hh middle name",
+                "dob" = "hh date of birth"
+            },
+            "existing": { (if hh_type='existing')
+                "hh_id": "hh document id"
+            }
+        }
+        """
+        request = self.request
+        user = request.jwt_claims.get('sub', 'guest')
+        hh_type = request.json_body.get('hh_type')
+        hh = None
+        msg = None
+        if hh_type == 'new':
+            new_params = request.json_body.get('new')
+            hh = Client.from_registration(request, **new_params)
+            hh.household_status = 'head'
+            if hh.in_db(request.db):
+                msg = 'Client %s, already exists' % hh.full_name
+                response_json = json.dumps({'msg': msg})
+                response_code = 409
+            else:
+                result = hh.save(request.db)
+                AuditLog.from_registration(
+                    result,
+                    'clients',
+                    'create',
+                    user,
+                    hh.__dict__
+                ).save(request.db)
+        elif hh_type == 'existing':
+            hh_id = request.json_body.get('existing').get('hh_id')
+            hh = Client.from_db_id(request.db, hh_id)
+            if hh.household_status == 'head':
+                msg = 'Client %s is already head of Household %s' % (
+                    hh.full_name,
+                    hh.household
+                )
+                response_json = json.dumps({'msg': msg})
+                response_code = 409
+            else:
+                hh.new_household()
+                hh.household_status = 'head'
+                AuditLog.from_registration(
+                    hh._id,
+                    'clients',
+                    'relate',
+                    user,
+                    {
+                        'Client': hh._id,
+                        'Household': hh.household
+                    }
+                ).save(request.db)
+        else:
+            msg = 'Request must include "hh_type" as "new" or "existing"'
+            response_json = json.dumps({'msg': msg})
+            response_code = 400
+
+        if hh and not msg:
+            new_household = Household.from_registration(request, hh)
+            result = new_household.save(request.db)
+            AuditLog.from_registration(
+                result,
+                'households',
+                'create',
+                user,
+                new_household.__dict__
+            ).save(request.db)
+            msg = 'New Household created, HH: %s' % hh.full_name
+            response_json = json.dumps({
+                'msg': msg,
+                'id': str(new_household._id)
+            })
+            response_code = 200
+
+        return Response(
+            text=response_json,
+            status_int=response_code,
+            content_type='application/json'
+        )
+
+
 class ClientViews(DefaultViews):
     model = Client
 
     @view_config(route_name='client_create', permission='prog_admin')
     def create(self):
-        print("OK")
         model = self.__class__.model
         return super(ClientViews, self).create(model)
+
+    @view_config(route_name='client_retrieve', permission='prog_match')
+    def retrieve(self):
+        model = self.__class__.model
+        return super(ClientViews, self).retrieve(model)

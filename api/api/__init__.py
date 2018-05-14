@@ -42,8 +42,12 @@ def main(global_config, **settings):
     config.add_route('usr_verify', '/usr/verify')
     config.add_route('usr_update', '/usr/update')
 
-    #ClientViews routes
+    # ClientViews routes
     config.add_route('client_create', '/client/create')
+    config.add_route('client_retrieve', '/client/retrieve')
+
+    # HouseholdViews routes
+    config.add_route('household_create', '/household/create')
 
     config.scan('.views')
     return config.make_wsgi_app()

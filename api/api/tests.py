@@ -127,6 +127,18 @@ class Suite1OwnerTests(FunctionalTests):
         )
         self.assertTrue(res.status_int == 200)
 
+    def test7_org_retrieve_related(self):
+        res = self.testapp.post_json(
+            '/org/retrieve/related',
+            dict(
+                root={
+                    'id': self.__class__.org_id,
+                    'collection': 'api_users'
+                }
+            )
+        )
+        self.assertTrue(res.status_int == 200)
+
 
 class Suite2OrgAdminTests(FunctionalTests):
     def test0_owner_login(self):
@@ -425,16 +437,16 @@ class Suite3ProgAdminTests(FunctionalTests):
         )
         self.assertTrue(res.status_int == 200)
 
-    def test4_client_create(self):
+    def test4_household1_create(self):
         res = self.testapp.post_json(
-            '/client/create',
+            '/household/create',
             dict(
-                create={
-                    'first_name': 'Karl',
-                    'last_name': 'arcus',
-                    'middle_name': 'mIlFoRd',
-                    'dob': '1988-05-04',
-                    'household': 'Of the Rising Sun'
+                hh_type='new',
+                new={
+                    'first_name': 'Juan',
+                    'last_name': 'Arfull',
+                    'middle_name': 'Domingo',
+                    'dob': '1965-05-01'
                 },
                 auth={
                     'organization': self.__class__.org_id,
@@ -442,5 +454,42 @@ class Suite3ProgAdminTests(FunctionalTests):
                 }
             )
         )
-        self.__class__.register_attr('prog_id', res.json.get('id'))
+        self.__class__.register_attr('house_id', res.json.get('id'))
         self.assertTrue(res.status_int == 200)
+
+    def test5_client_create(self):
+        res = self.testapp.post_json(
+            '/client/create',
+            dict(
+                create={
+                    'first_name': 'Carl',
+                    'last_name': 'arcus',
+                    'middle_name': 'mIlFoRd',
+                    'dob': '1988-05-04',
+                    'household': self.__class__.house_id
+                },
+                auth={
+                    'organization': self.__class__.org_id,
+                    'program': self.__class__.prog_id
+                }
+            )
+        )
+        self.__class__.register_attr('client_id', res.json.get('id'))
+        self.assertTrue(res.status_int == 200)
+
+    # def test6_household2_create(self):
+    #     res = self.testapp.post_json(
+    #         '/household/create',
+    #         dict(
+    #             hh_type='existing',
+    #             existing={
+    #                 'hh_id': self.__class__.client_id
+    #             },
+    #             auth={
+    #                 'organization': self.__class__.org_id,
+    #                 'program': self.__class__.prog_id
+    #             }
+    #         )
+    #     )
+    #     self.__class__.register_attr('house2_id', res.json.get('id'))
+    #     self.assertTrue(res.status_int == 200)

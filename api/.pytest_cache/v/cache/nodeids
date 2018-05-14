@@ -1,0 +1,23 @@
+[
+  "api/tests.py::Suite1OwnerTests::test0_owner_login",
+  "api/tests.py::Suite1OwnerTests::test1_org_create",
+  "api/tests.py::Suite1OwnerTests::test2_org_retrieve_all",
+  "api/tests.py::Suite1OwnerTests::test3_org_retrieve_page",
+  "api/tests.py::Suite1OwnerTests::test4_register_org_admin",
+  "api/tests.py::Suite1OwnerTests::test5_verify_org_admin",
+  "api/tests.py::Suite1OwnerTests::test6_approve_org_admin",
+  "api/tests.py::Suite1OwnerTests::test7_org_retrieve_related",
+  "api/tests.py::Suite2OrgAdminTests::test0_owner_login",
+  "api/tests.py::Suite2OrgAdminTests::test1_org_admin_setup_login",
+  "api/tests.py::Suite2OrgAdminTests::test2_prog_create",
+  "api/tests.py::Suite2OrgAdminTests::test3_add_new_prog_to_org",
+  "api/tests.py::Suite2OrgAdminTests::test4_add_existing_prog_to_org",
+  "api/tests.py::Suite2OrgAdminTests::test5_register_prog_admin",
+  "api/tests.py::Suite2OrgAdminTests::test6_approve_prog_admin",
+  "api/tests.py::Suite3ProgAdminTests::test0_owner_login",
+  "api/tests.py::Suite3ProgAdminTests::test1_prog_admin_setup_login",
+  "api/tests.py::Suite3ProgAdminTests::test2_register_prog_user",
+  "api/tests.py::Suite3ProgAdminTests::test3_update_prog_user",
+  "api/tests.py::Suite3ProgAdminTests::test4_household1_create",
+  "api/tests.py::Suite3ProgAdminTests::test5_client_create"
+]

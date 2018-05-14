@@ -1,9 +1,11 @@
 import bcrypt
+import datetime
 
 from cryptography.fernet import Fernet, MultiFernet
 from uuid import uuid4
-from datetime import datetime
+# from datetime import datetime
 from bson.objectid import ObjectId
+from bson.binary import Binary
 
 
 def to_datetime(datetime_string: str):
@@ -22,8 +24,27 @@ def dict_to_json(target: dict):
             output[k] = [str(i) for i in v]
         elif isinstance(v, dict):
             output[k] = dict_to_json(v)
-        elif k == '_id':
+        elif isinstance(v, PII):
+            output[k] = v.decrypt()
+        else:
+            output[k] = str(v)
+    return output
+
+
+def dict_to_bson(target: dict):
+    output = {}
+    for k, v in target.items():
+        # If _id is None, skip it
+        if k == '_id' and not v:
+            continue
+        if isinstance(v, list):
+            output[k] = [str(i) for i in v]
+        elif isinstance(v, dict):
+            output[k] = dict_to_bson(v)
+        elif isinstance(v, (ObjectId, datetime.datetime, bytes)):
             output[k] = v
+        elif isinstance(v, PII):
+            output[k] = Binary(v.encrypted)
         else:
             output[k] = str(v)
     return output
@@ -46,24 +67,29 @@ class PII(object):
     keys = [Fernet(key) for key in keys]
     keys = MultiFernet(keys)
 
-    def __init__(self, encrypted):
-        self.encrypted = encrypted
+    def __init__(self, encrypted: bytes):
+        if not encrypted:
+            self.encrypted = PII.encrypt('None')
+        else:
+            self.encrypted = encrypted
 
-    def __str__(self):
-        if isinstance(self.encrypted, bytes):
-            return self.encrypted.decode('utf-8')
-        return str(self.encrypted)
+    def __str__(self) -> str:
+        return self.encrypted.decode('utf-8')
 
-    def decrypt(self):
+    def bytes(self) -> bytes:
+        return self.encrypted
+
+    def decrypt(self) -> str:
         keys = self.__class__.keys
-        return keys.decrypt(self.encrypted)
+        return keys.decrypt(self.encrypted).decode('utf-8')
 
     @classmethod
-    def encrypt(cls, plaintext):
+    def encrypt(cls, plaintext) -> bytes:
         if not isinstance(plaintext, str):
             plaintext = str(plaintext)
-        encrypted = cls.keys.encrypt(plaintext.encode('utf-8'))
-        return cls(encrypted)
+        entry_bytes = plaintext.encode('utf-8')
+        encrypted = cls.keys.encrypt(entry_bytes)
+        return encrypted
 
 
 class Password(object):
@@ -203,6 +229,9 @@ class DatabaseModel(object):
     def to_json(self):
         return dict_to_json(self.__dict__)
 
+    def to_bson(self):
+        return dict_to_bson(self.__dict__)
+
     def set_id(self):
         self._id = ObjectId()
 
@@ -219,7 +248,7 @@ class DatabaseModel(object):
     def save(self, db):
         """Save the document record in the database, return the _id"""
         collection = type(self).collection
-        document = self.to_json()
+        document = self.to_bson()
 
         result = db[collection].insert_one(document)
         if result.acknowledged:
@@ -230,7 +259,7 @@ class DatabaseModel(object):
     def update_db(self, db):
         """Update the database with new object values"""
         collection = type(self).collection
-        document = dict_to_json(self.__dict__)
+        document = dict_to_bson(self.__dict__)
         document.pop('_id')
         db[collection].update_one(
             {'_id': self._id},
@@ -322,8 +351,8 @@ class AuditLog(DatabaseModel):
 
     @classmethod
     def from_registration(cls, target, collection, action, user, document):
-        _id = None
-        timestamp = datetime.utcnow()
+        _id = ObjectId()
+        timestamp = datetime.datetime.utcnow()
         return cls(_id, target, collection, action, user, timestamp, document)
 
 
@@ -371,8 +400,8 @@ class Organization(DatabaseModel):
 
     @classmethod
     def from_registration(cls, request, name, email, phone, address):
-        _id = None
-        created = datetime.utcnow()
+        _id = ObjectId()
+        created = datetime.datetime.utcnow()
         created_by = request.jwt_claims['sub']
         return cls(_id, name, email, phone, address, created, created_by)
 
@@ -417,8 +446,8 @@ class Program(DatabaseModel):
 
     @classmethod
     def from_registration(cls, request, name, service_categories, description):
-        _id = None
-        created = datetime.utcnow()
+        _id = ObjectId()
+        created = datetime.datetime.utcnow()
         created_by = request.jwt_claims['sub']
         return cls(_id, name, service_categories, description, created,
                    created_by)
@@ -479,14 +508,100 @@ class User(DatabaseModel):
 
     @classmethod
     def from_registration(cls, request, email, password, organization):
-        _id = None
+        _id = ObjectId()
         role = 'new'
         program = None
-        created = str(datetime.utcnow())
+        created = str(datetime.datetime.utcnow())
         email_ver_code = Password.random_string()
         password = Password.from_plaintext(password)
+        organization = ObjectId(organization)
         return cls(_id, email, password, role, organization, program, created,
                    email_ver_code=email_ver_code)
+
+
+class Client(DatabaseModelWithPii):
+    collection = 'clients'
+    search_field = 'full_name'
+    pii_fields = [
+        'gender',
+        'race',
+        'ethnicity',
+        'email',
+        'primary_phone',
+        'alt_phone',
+        'phys_address',
+        'mail_address',
+        'ssn'
+    ]
+
+    # TODO: Implement more robust checking for self.in_db()
+
+    def __init__(self,
+                 _id,
+                 first_name,
+                 last_name,
+                 middle_name,
+                 full_name,
+                 dob,
+                 created,
+                 created_by,
+                 household_status,
+                 modified=None,
+                 modified_by=None,
+                 gender=None,
+                 race=None,
+                 ethnicity=None,
+                 email=None,
+                 primary_phone=None,
+                 alt_phone=None,
+                 phys_address=None,
+                 mail_address=None,
+                 ssn=None,
+                 household=None,
+                 services=[]):
+        self._id = _id
+        self.first_name = first_name
+        self.last_name = last_name
+        self.middle_name = middle_name
+        self.full_name = full_name
+        self.dob = PII(dob)
+        self.created = created
+        self.created_by = created_by
+        self.household_status = household_status
+        self.modified = modified
+        self.modified_by = modified_by
+        self.gender = PII(gender)
+        self.race = PII(race)
+        self.ethnicity = PII(ethnicity)
+        self.email = PII(email)
+        self.primary_phone = PII(primary_phone)
+        self.alt_phone = PII(alt_phone)
+        self.phys_address = PII(phys_address)
+        self.mail_address = PII(mail_address)
+        self.ssn = PII(ssn)
+        self.household = household
+        self.services = services
+
+    def new_household(self):
+        self.household = ObjectId()
+        return self.household
+
+    @classmethod
+    def from_registration(cls, request, first_name, last_name,
+                          middle_name, dob, household=ObjectId()):
+        _id = ObjectId()
+        first_name = first_name.title()
+        last_name = last_name.title()
+        middle_name = middle_name.title()
+        full_name = last_name + ', ' + first_name + ' ' + middle_name[0]
+        created = datetime.datetime.utcnow()
+        created_by = request.jwt_claims['sub']
+        household_status = 'member'
+        dob = PII.encrypt(dob)
+        if not isinstance(household, ObjectId):
+            household = ObjectId(household)
+        return cls(_id, first_name, last_name, middle_name, full_name, dob,
+                   created, created_by, household_status, household=household)
 
 
 class Household(DatabaseModel):
@@ -516,83 +631,11 @@ class Household(DatabaseModel):
         self.clients = clients
 
     @classmethod
-    def from_registration(cls, request, hh_name, hh_id):
-        _id = None
-        created = datetime.utcnow()
+    def from_registration(cls, request, hh: Client):
+        _id = hh.household
+        hh_name = hh.full_name
+        hh_id = hh._id
+        created = datetime.datetime.utcnow()
         created_by = request.jwt_claims['sub']
-        clients = [hh_id]
+        clients = [hh._id]
         return cls(_id, hh_name, hh_id, created, created_by, clients=clients)
-
-
-class Client(DatabaseModelWithPii):
-    collection = 'clients'
-    search_field = 'full_name'
-    pii_fields = [
-        'gender',
-        'race',
-        'ethnicity',
-        'email',
-        'primary_phone',
-        'alt_phone',
-        'phys_address',
-        'mail_address',
-        'ssn'
-    ]
-
-    def __init__(self,
-                 _id,
-                 first_name,
-                 last_name,
-                 middle_name,
-                 full_name,
-                 dob,
-                 created,
-                 created_by,
-                 modified=None,
-                 modified_by=None,
-                 gender=None,
-                 race=None,
-                 ethnicity=None,
-                 email=None,
-                 primary_phone=None,
-                 alt_phone=None,
-                 phys_address=None,
-                 mail_address=None,
-                 ssn=None,
-                 household=None,
-                 services=[]):
-        self._id = _id
-        self.first_name = first_name
-        self.last_name = last_name
-        self.middle_name = middle_name
-        self.full_name = full_name
-        self.dob = PII.encrypt(dob)
-        self.created = created
-        self.created_by = created_by
-        self.modified = modified
-        self.modified_by = modified_by
-        self.gender = PII.encrypt(gender)
-        self.race = PII.encrypt(race)
-        self.ethnicity = PII.encrypt(ethnicity)
-        self.email = PII.encrypt(email)
-        self.primary_phone = PII.encrypt(primary_phone)
-        self.alt_phone = PII.encrypt(alt_phone)
-        self.phys_address = PII.encrypt(phys_address)
-        self.mail_address = PII.encrypt(mail_address)
-        self.ssn = PII.encrypt(ssn)
-        self.household = household
-        self.service = services
-
-    @classmethod
-    def from_registration(cls, request, first_name, last_name,
-                          middle_name, dob, household):
-        _id = None
-        first_name = first_name.title()
-        last_name = last_name.title()
-        middle_name = middle_name.title()
-        full_name = last_name + ', ' + first_name + ' ' + middle_name[0]
-        created = datetime.utcnow()
-        created_by = request.jwt_claims['sub']
-        dob = PII.encrypt(dob)
-        return cls(_id, first_name, last_name, middle_name, full_name, dob,
-                   created, created_by, household=household)

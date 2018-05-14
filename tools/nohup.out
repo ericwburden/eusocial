@@ -1,0 +1,32 @@
+Wed Apr 18 21:47:32 CDT 2018 
+
+> gui@0.1.0 start /home/eric/Projects/eusocial/gui
+> react-scripts start
+
+Something is already running on port 3000.
+ * Serving Flask app "api"
+ * Forcing debug mode on
+Traceback (most recent call last):
+  File "/home/eric/.virtualenvs/eusocial/bin/flask", line 11, in <module>
+    sys.exit(main())
+  File "/home/eric/.virtualenvs/eusocial/lib/python3.5/site-packages/flask/cli.py", line 513, in main
+    cli.main(args=args, prog_name=name)
+  File "/home/eric/.virtualenvs/eusocial/lib/python3.5/site-packages/flask/cli.py", line 380, in main
+    return AppGroup.main(self, *args, **kwargs)
+  File "/home/eric/.virtualenvs/eusocial/lib/python3.5/site-packages/click/core.py", line 697, in main
+    rv = self.invoke(ctx)
+  File "/home/eric/.virtualenvs/eusocial/lib/python3.5/site-packages/click/core.py", line 1066, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+  File "/home/eric/.virtualenvs/eusocial/lib/python3.5/site-packages/click/core.py", line 895, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+  File "/home/eric/.virtualenvs/eusocial/lib/python3.5/site-packages/click/core.py", line 535, in invoke
+    return callback(*args, **kwargs)
+  File "/home/eric/.virtualenvs/eusocial/lib/python3.5/site-packages/click/decorators.py", line 64, in new_func
+    return ctx.invoke(f, obj, *args[1:], **kwargs)
+  File "/home/eric/.virtualenvs/eusocial/lib/python3.5/site-packages/click/core.py", line 535, in invoke
+    return callback(*args, **kwargs)
+  File "/home/eric/.virtualenvs/eusocial/lib/python3.5/site-packages/flask/cli.py", line 438, in run_command
+    use_debugger=debugger, threaded=with_threads)
+  File "/home/eric/.virtualenvs/eusocial/lib/python3.5/site-packages/werkzeug/serving.py", line 795, in run_simple
+    s.bind(get_sockaddr(hostname, port, address_family))
+OSError: [Errno 98] Address already in use

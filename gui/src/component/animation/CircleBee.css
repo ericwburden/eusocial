@@ -1,0 +1,81 @@
+/* ---------- Container for the orbiting circles animation ---------- */
+#CircleBeeContainer {
+  position: relative;
+  top: 25px;
+  left: 25px;
+  height: 300px;
+  width: 300px;
+}
+
+/* ---------- Middle orbit - This is the circles second closest to the central point ---------- */
+#CircleBeeOrbit {
+  position: absolute;
+  top: 35px;
+  left: 35px;
+  width: 150px;
+  height: 150px;
+  border-radius: 100%;
+  -webkit-animation: spin-left 5s linear infinite;
+  animation: spin-left 5s linear infinite;
+}
+
+/* ---------- Repeating styles for the inner orbiting circles ---------- */
+.CircleBeeImg {
+  position: absolute;
+  top: 40px;
+  left: -4px;
+  height: 35px;
+  width: 35px;
+  -webkit-animation: sway .75s linear infinite;
+  animation: sway .75s linear infinite;
+}
+
+/* ---------- Animation ---------- */
+@-webkit-keyframes spin-left {
+  100% {
+    -webkit-transform: rotate(-360deg);
+    -moz-transform: rotate(-360deg);
+    -ms-transform: rotate(-360deg);
+    -o-transform: rotate(-360deg);
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes spin-left {
+  100% {
+    -webkit-transform: rotate(-360deg);
+    -moz-transform: rotate(-360deg);
+    -ms-transform: rotate(-360deg);
+    -o-transform: rotate(-360deg);
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes sway {
+  0% {
+    -webkit-transform: translate(-35%, 0);
+    transform: translate(-35%, 0);
+  }
+  50% {
+    -webkit-transform: translate(35%, 0);
+    transform: translate(35%, 0);
+  }
+  100% {
+    -webkit-transform: translate(-35%, 0);
+    transform: translate(-35%, 0);
+  }
+}
+@-webkit-keyframes sway {
+  0% {
+    -webkit-transform: translate(-35%, 0);
+    transform: translate(-35%, 0);
+  }
+  50% {
+    -webkit-transform: translate(35%, 0);
+    transform: translate(35%, 0);
+  }
+  100% {
+    -webkit-transform: translate(-35%, 0);
+    transform: translate(-35%, 0);
+  }
+}

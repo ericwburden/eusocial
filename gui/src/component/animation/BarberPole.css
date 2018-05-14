@@ -1,0 +1,21 @@
+.barberPole {
+  width: 200px;
+  height: 200px;
+  margin: 1rem auto;
+  background-image:
+    repeating-linear-gradient(
+      -45deg,
+      #fc0,
+      #fc0 1rem,
+      transparent 1rem,
+      transparent 2rem
+    );
+  background-size: 200% 200%;
+  animation: barberpole 10s linear infinite;
+}
+
+@keyframes barberpole {
+  100% {
+    background-position: 100% 100%;
+  }
+}

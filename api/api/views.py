@@ -8,6 +8,7 @@ from pyramid.view import (
     view_defaults,
 )
 from .models import (
+    RequestHandler,
     User,
     AuditLog,
     Password,
@@ -884,3 +885,11 @@ class ClientViews(DefaultViews):
     def retrieve(self):
         model = self.__class__.model
         return super(ClientViews, self).retrieve(model)
+
+
+class AuditLogViews(DefaultViews):
+    @view_config(route_name='test')
+    def test(self):
+        handler = RequestHandler(AuditLog)
+        return handler.retrieve(self.request)
+        return AuditLog.search_db(self.request)

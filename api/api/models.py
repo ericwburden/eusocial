@@ -3,15 +3,22 @@ import datetime
 
 from cryptography.fernet import Fernet, MultiFernet
 from uuid import uuid4
-# from datetime import datetime
 from bson.objectid import ObjectId
 from bson.binary import Binary
+from pymongo import (
+    ASCENDING,
+    DESCENDING
+)
+from pyramid.response import Response
+from typing import Type
+from .utils import jsonify
 
 
-def to_datetime(datetime_string: str):
-    if datetime_string:
-        return datetime.strptime(datetime_string, '%Y-%m-%d %H:%M:%S.%f')
-    return None
+class RequestDispatcher(object):
+    def __init__(self, request):
+        self.db = request.db
+        self.params = request.json_body
+        self.jwt_claims = request.jwt_claims
 
 
 def dict_to_json(target: dict):
@@ -133,6 +140,8 @@ class Password(object):
 
 
 class DatabaseModel(object):
+    collection = 'UNDEFINED'
+
     @property
     def search_field(self):
         """
@@ -142,21 +151,73 @@ class DatabaseModel(object):
         """
         raise NotImplementedError
 
-    @property
-    def collection(self):
-        """
-        The name of the collection in which this object will be stored.
-        """
-        raise NotImplementedError
+    # New style methods
 
-    # @property
-    # def fields(self):
-    #     """
-    #     A list of the names of fields required to be present in order to
-    #     add this object as a document to the database. Other fields may also
-    #     be present.
-    #     """
-    #     raise NotImplementedError
+    @classmethod
+    def search_db(cls, request) -> ['DatabaseModel']:
+        """
+        Return a list of database objects that match the search parameters
+
+        Request Format
+        {
+            'search': {
+                'fields': [document fields to search for the search term],
+                'term': the search term,
+                'limit': maximum number of documents to return,
+                'skip': number of documents to skip before returning,
+                'sorts': {
+                    'field1': direction to sort field1,
+                    'field2': direction to sort field2,
+                    .
+                    .
+                    .
+                    'fieldn': direction to sort fieldn
+                }
+            }
+        }
+        """
+        collection = cls.collection
+        db = request.db
+        request_params = request.json_body.get('search')
+        term = request_params.get('term')
+        fields = request_params.get('fields')
+        skip = request_params.get('skip')
+        limit = request_params.get('limit')
+        sorts = request_params.get('sorts')
+        sort_list = []
+        for k, v in sorts.items():
+            direction = ASCENDING if v == 'ascending' else DESCENDING
+            sort_list.append((k, direction))
+        field_match_dict = [{field: term} for field in fields]
+        db_query = {'$or': field_match_dict}
+        result = db[collection].find(
+            db_query,
+            skip=skip,
+            limit=limit,
+            sort=sort_list
+        )
+        if result.count() > 0:
+            return list(result)
+        else:
+            return None
+
+    @classmethod
+    def retrieve(cls, request) -> 'DatabaseModel':
+        collection = cls.collection
+        db = request.db
+        request_params = request.json_body.get('retrieve')
+        obj_id = ObjectId(request_params.get('id'))
+        result = db[collection].find_one({'_id': obj_id})
+        if result:
+            return cls(**result)
+        else:
+            return None
+
+    @classmethod
+    def save_new(cls, request) -> 'DatabaseModel':
+        
+
+    # Old style methods
 
     @classmethod
     def one_from_db_search(cls, db, search_term):
@@ -303,6 +364,70 @@ class DatabaseModel(object):
         else:
             return []
 
+
+class RequestHandler(object):
+    def __init__(self, model: Type[DatabaseModel]):
+        self.model = model
+
+    def search_db(self, request) -> Response:
+        """
+        Return all database objects that match the search parameters
+
+        Request Format
+        {
+            'search': {
+                'fields': [document fields to search for the search term],
+                'term': the search term,
+                'limit': maximum number of documents to return,
+                'skip': number of documents to skip before returning,
+                'sorts': {
+                    'field1': direction to sort field1,
+                    'field2': direction to sort field2,
+                    .
+                    .
+                    .
+                    'fieldn': direction to sort fieldn
+                }
+            }
+        }
+        """
+        collection = self.model.collection
+        request_params = request.json_body.get('search')
+        term = request_params.get('term')
+        fields = request_params.get('fields')
+        result = self.model.search_db(request)
+        if result:
+            return Response(
+                json=jsonify({'results': result}),
+                status_int=200,
+                content_type='application/json'
+            )
+        else:
+            msg = f'No {collection} found searching {fields} for {term}'
+            return Response(
+                json={'msg': msg},
+                status_int=404,
+                content_type='application/json'
+            )
+
+    def retrieve(self, request) -> Response:
+        result = self.model.retrieve(request)
+        request_params = request.json_body.get('retrieve')
+        id = request_params.get('id')
+        document = self.model.__name__
+        if result:
+            return Response(
+                json=jsonify({'result': result}),
+                status_int=200,
+                content_type='application/json'
+            )
+        else:
+            msg = f'No {document} with id: {id}'
+            return Response(
+                json={'msg': msg},
+                status_int=404,
+                content_type='application/json'
+            )
 
 class DatabaseModelWithPii(DatabaseModel):
     @property
@@ -455,19 +580,6 @@ class Program(DatabaseModel):
 
 class User(DatabaseModel):
     collection = 'api_users'
-    fields = {'_id': str,
-              'email': str,
-              'password': str,
-              'role': str,
-              'organization': str,
-              'program': str,
-              'created': to_datetime,
-              'last_login': to_datetime,
-              'email_verified': bool,
-              'email_ver_code': str,
-              'approved': bool,
-              'approved_by': str,
-              'approved_at': to_datetime}
     search_field = 'email'
 
     def __init__(self,

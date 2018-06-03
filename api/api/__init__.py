@@ -13,6 +13,7 @@ def main(global_config, **settings):
     config.include('.security')
 
     # AuthViews routes
+    config.add_route('test', '/test')
     config.add_route('login', '/login')
     config.add_route('logout', '/logout')
     config.add_route('register', '/register')

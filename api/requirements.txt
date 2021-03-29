@@ -21,7 +21,7 @@ plaster-pastedeploy==0.5
 pluggy==0.6.0
 py==1.5.3
 pycparser==2.18
-Pygments==2.2.0
+Pygments==2.7.4
 PyJWT==1.6.1
 pymongo==3.6.1
 pyramid==1.9.2

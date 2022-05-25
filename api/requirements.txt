@@ -22,7 +22,7 @@ pluggy==0.6.0
 py==1.5.3
 pycparser==2.18
 Pygments==2.2.0
-PyJWT==1.6.1
+PyJWT==2.4.0
 pymongo==3.6.1
 pyramid==1.9.2
 pyramid-debugtoolbar==4.4
